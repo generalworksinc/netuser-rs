@@ -151,7 +151,7 @@ pub fn get_user_groups(username: &str) -> Result<(Vec<String>, Vec<String>), u32
     let mut total_entries = 0;
     let mut rc;
 
-    let local_groups_slice = unsafe {
+    let local_groups = unsafe {
         rc = NetUserGetLocalGroups(
             null_mut(),
             wide_username_nul.as_ptr(),
@@ -166,22 +166,29 @@ pub fn get_user_groups(username: &str) -> Result<(Vec<String>, Vec<String>), u32
             return Err(rc);
         }
 
-        std::slice::from_raw_parts(
-            buffer as *const u8 as *const LOCALGROUP_USERS_INFO_0,
-            entries_read as usize,
-        )
+
+        if total_entries != 0 {
+            let local_groups_slice = std::slice::from_raw_parts(
+                buffer as *const u8 as *const LOCALGROUP_USERS_INFO_0,
+                entries_read as usize,
+            );
+            let mut local_groups = Vec::<String>::with_capacity(local_groups_slice.len());
+            for group in local_groups_slice {
+                local_groups.push(decode_wide_nul_to_string(group.lgrui0_name).unwrap());
+            }
+            local_groups
+        } else {
+            Vec::new()
+        }
     };
 
-    let mut local_groups = Vec::<String>::with_capacity(local_groups_slice.len());
-    for group in local_groups_slice {
-        local_groups.push(decode_wide_nul_to_string(group.lgrui0_name).unwrap());
-    }
+    
 
     buffer = null_mut();
     entries_read = 0;
     total_entries = 0;
 
-    let global_groups_slice = unsafe {
+    let global_groups = unsafe {
         rc = NetUserGetGroups(
             null_mut(),
             wide_username_nul.as_ptr(),
@@ -195,17 +202,23 @@ pub fn get_user_groups(username: &str) -> Result<(Vec<String>, Vec<String>), u32
             return Err(rc);
         }
 
-        std::slice::from_raw_parts(
-            buffer as *const u8 as *const GROUP_USERS_INFO_0,
-            entries_read as usize,
-        )
+        if total_entries == 0 {
+            let global_groups_slice = std::slice::from_raw_parts(
+                buffer as *const u8 as *const GROUP_USERS_INFO_0,
+                entries_read as usize,
+            );
+            let mut global_groups = Vec::<String>::with_capacity(global_groups_slice.len());
+
+            for group in global_groups_slice {
+                global_groups.push(decode_wide_nul_to_string(group.grui0_name).unwrap());
+            }
+            global_groups
+        } else {
+            Vec::new()
+        }
     };
 
-    let mut global_groups = Vec::<String>::with_capacity(global_groups_slice.len());
-
-    for group in global_groups_slice {
-        global_groups.push(decode_wide_nul_to_string(group.grui0_name).unwrap());
-    }
+    
 
     Ok((local_groups, global_groups))
 }
