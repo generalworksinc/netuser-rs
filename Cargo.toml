@@ -1,5 +1,5 @@
 [package]
-name = "netuser-rs"
+name = "netuser_rs"
 authors = ["secur30nly"]
 description = "Rust bindings to Microsoft Windows users / groups management API"
 license = "BSD 2-Clause \"Simplified\" License"
